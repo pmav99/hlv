@@ -13,6 +13,21 @@ import numpy as np
 import pyproj
 import shapely
 
+__all__ = [
+    "calc_area_and_perimeter",
+    "GDF",
+    "hist",
+    "measure_distance",
+    "PLOT",
+    "setup",
+    "show",
+    "WGS84",
+    "WGS84_GEOD",
+]
+
+
+WGS84 = pyproj.CRS(projparams=("epsg", 4326))
+WGS84_GEOD = pyproj.Geod(ellps="WGS84")
 
 if T.TYPE_CHECKING:  # pragma: no cover
     import bokeh.events
@@ -26,6 +41,7 @@ if T.TYPE_CHECKING:  # pragma: no cover
     NPArray: T.TypeAlias = npt.NDArray[np.float64]
 
     assert isinstance(ccrs.GOOGLE_MERCATOR, ccrs.Mercator)  # type hints BS
+
 
 def setup():
     hv = importlib.import_module("holoviews")
@@ -125,6 +141,28 @@ def GDF(  # noqa: N802
     return gdf
 
 
+def calc_area_and_perimeter(
+    gdf: gpd.GeoDataFrame,
+    geod: pyproj.Geod = WGS84_GEOD,
+    *,
+    sort: bool = False,
+) -> gpd.GeoDataFrame:
+    area: NPArray
+    perimeter: NPArray
+    assert gdf.crs is not None, "CRS must be defined!"
+    geometry_area_perimeter = np.vectorize(geod.geometry_area_perimeter)  # pyright: ignore[reportUnknownArgumentType]
+    area, perimeter = geometry_area_perimeter(gdf.to_crs(WGS84).geometry.exterior.normalize())
+    area *= -1
+    gdf = gdf.assign(  # pyright:ignore[reportAssignmentType]
+        wgs84_area=area,
+        wgs84_perimeter=perimeter,
+        no_coords=gdf.count_coordinates() - 1,
+    )
+    if sort:
+        gdf = gdf.sort_values("no_coords", ascending=False, ignore_index=True)  # pyright:ignore[reportAssignmentType]
+    return gdf
+
+
 def show(*objs: T.Any, threaded: bool = True, **kwargs: T.Any) -> None:
     pn = importlib.import_module("panel")
     _ = pn.serve(panels=pn.Column(*objs), threaded=threaded, **kwargs)
@@ -215,8 +253,6 @@ def measure_distance(plot: BokehPlot, _: hv.Element) -> None:
     import panel as pn
     import bokeh.events
 
-    wgs84_geod = pyproj.Geod(ellps="WGS84")
-
     def dist(event: bokeh.events.Tap):
         # type hints BS
         assert event.model is not None
@@ -237,7 +273,7 @@ def measure_distance(plot: BokehPlot, _: hv.Element) -> None:
         transformer = _get_transformer()
         plon, plat = transformer.transform(px, py)
         clon, clat = transformer.transform(cx, cy)
-        _, _, distance_ellps = wgs84_geod.inv(plon, plat, clon, clat)
+        _, _, distance_ellps = WGS84_GEOD.inv(plon, plat, clon, clat)
         # Show notification
         msg = f"x: {cx}\ny: {cy}\n\nlon: {clon}\nlat: {clat}\n\nCartesian: {distance_cart:.2f}\nEllipsoid: {distance_ellps:.2f}"
         print(msg)  # noqa: T201

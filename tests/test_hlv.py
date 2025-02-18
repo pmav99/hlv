@@ -7,6 +7,7 @@ import pytest
 import shapely
 
 from hlv import GDF
+from hlv import calc_area_and_perimeter
 
 BOX = shapely.box(0, 0, 1, 1)
 BOX_GDF = gpd.GeoDataFrame(geometry=[BOX], crs=4326)
@@ -99,3 +100,14 @@ def test_gdf_other_types_raises():
         GDF([1, 2, 3])  # pyright: ignore[reportCallIssue,reportArgumentType]
     msg = "Unsupported type provided for conversion."
     assert msg in str(exc)
+
+
+def test_calc_area_and_perimeter():
+    gdf = calc_area_and_perimeter(BOX_GDF)
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert "wgs84_area" in gdf.columns
+    assert "wgs84_perimeter" in gdf.columns
+    assert "no_coords" in gdf.columns
+    # 1 degree in 4326 is ~ 111km on the equator.
+    # Therefore a rectagnle should be a bit less than 444_000 meters
+    assert gdf.wgs84_perimeter.iloc[0] == pytest.approx(444_000, abs=1e3)
