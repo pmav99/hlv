@@ -1,0 +1,45 @@
+[project]
+name = "hlv"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Panos Mavrogiorgos",email = "pmav99@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "bokeh",
+    "cartopy",
+    "geopandas",
+    "geoviews",
+    "holoviews",
+    "numpy",
+    "pandas[computation,performance]",
+    "panel",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "*"
+mypy = "*"
+pandas-stubs = "*"
+types-geopandas = "*"
+types-shapely = "*"
+basedpyright = "*"
+pytest = "*"
+pytest-cov = "*"
+ipykernel = "*"
+microsoft-python-type-stubs = {git = "https://github.com/microsoft/python-type-stubs.git"}
+
+[tool.pytest.ini_options]
+addopts = "-ra --verbose --showlocals --tb=short"
+testpaths = ["tests"]
+log_cli = true
+filterwarnings = [
+    'ignore:distutils Version classes are deprecated. Use packaging.version instead:DeprecationWarning',
+    'ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning',
+]

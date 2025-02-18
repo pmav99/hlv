@@ -1,0 +1,18 @@
+{
+  "typeCheckingMode": "all",
+  "reportAny": false,
+  "allowedUntypedLibraries": [
+    "cartopy",
+    "cartopy.crs",
+    "geoviews",
+    "holoviews",
+    "hvplot",
+    "panel",
+    "pyproj"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "**/tests"
+    }
+  ]
+}
