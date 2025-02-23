@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import functools
 import importlib
+import logging
 import math
 import subprocess
 import typing as T
 from collections import abc
 
 import cartopy.crs as ccrs
+import logfmter
 import numpy as np
 import pyproj
 import shapely
@@ -43,7 +45,19 @@ if T.TYPE_CHECKING:  # pragma: no cover
     assert isinstance(ccrs.GOOGLE_MERCATOR, ccrs.Mercator)  # type hints BS
 
 
-def setup():
+def setup(include_logging: bool = True):
+    if include_logging:
+        logging.getLogger("asyncio").setLevel(logging.INFO)
+        logging.getLogger("bokeh").setLevel(logging.WARNING)
+        logging.getLogger("tornado").setLevel(logging.WARNING)
+        formatter = logfmter.Logfmter(
+            keys=["lvl", "at", "filename", "lineno", ],
+            mapping={"lvl": "levelname", "at": "asctime"},
+            #datefmt="%Y-%m-%d"
+        )
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logging.basicConfig(level=logging.DEBUG, handlers=[handler])
     hv = importlib.import_module("holoviews")
     pn = importlib.import_module("panel")
     _ = hv.extension("bokeh")
