@@ -248,7 +248,7 @@ def PLOT(  # noqa: N802
                 )
             case _:
                 raise ValueError(f"Unsupported type provided for plotting: {type(geo)}.")
-    overlay = T.cast(hv.Overlay, hv.Overlay(plots).opts(hooks=[measure_distance]))
+    overlay = T.cast(hv.Overlay, hv.Overlay(plots).opts(hooks=[measure_distance], projection=crs))
     show(overlay)
 
 @T.overload
@@ -377,9 +377,9 @@ def to_points_df(
 
 
 @functools.cache
-def _get_transformer() -> pyproj.Transformer:
+def _get_transformer(from_crs) -> pyproj.Transformer:
     transformer = pyproj.Transformer.from_crs(
-        pyproj.CRS(3857),
+        from_crs,
         pyproj.CRS(4326),
         always_xy=True,
         allow_ballpark=True,
@@ -397,6 +397,7 @@ def measure_distance(plot: BokehPlot, _: hv.Element) -> None:
         assert event.model is not None
         assert event.x is not None
         assert event.y is not None
+        assert isinstance(plot.projection, ccrs.CRS)
         cache = T.cast(dict[T.Any, tuple[float, float]], pn.state.cache)
         # Get the unique ID of the plot. We will use it as the cache key
         model_id = event.model.id
@@ -408,8 +409,7 @@ def measure_distance(plot: BokehPlot, _: hv.Element) -> None:
         # Store current point to cache
         cache[model_id] = (cx, cy)
         # Transform coords to EPSG 4326 and calculdate distance on GEOID
-        #transformer = _get_transformer(plot.projection)
-        transformer = _get_transformer()
+        transformer = _get_transformer(plot.projection)
         plon, plat = transformer.transform(px, py)
         clon, clat = transformer.transform(cx, cy)
         _, _, distance_ellps = WGS84_GEOD.inv(plon, plat, clon, clat)
