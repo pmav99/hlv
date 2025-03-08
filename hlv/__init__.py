@@ -220,7 +220,7 @@ def _plot_gdf(
 def PLOT(  # noqa: N802
     *geos: gpd.GeoDataFrame | gpd.GeoSeries | hv.Element,
     crs: pyproj.CRS = ccrs.GOOGLE_MERCATOR,
-    alpha: float = 0.5,
+    alpha: float = 0.25,
     size: float = 8,
     tiles: str = "OSM",
     per_row: bool = False,
