@@ -23,6 +23,7 @@ __all__ = [
     "PLOT",
     "setup",
     "show",
+    "to_points_df",
     "WGS84",
     "WGS84_GEOD",
 ]
@@ -249,6 +250,130 @@ def PLOT(  # noqa: N802
                 raise ValueError(f"Unsupported type provided for plotting: {type(geo)}.")
     overlay = T.cast(hv.Overlay, hv.Overlay(plots).opts(hooks=[measure_distance]))
     show(overlay)
+
+@T.overload
+def to_points_df(
+    geo: gpd.GeoDataFrame,
+    crs: int,
+    *,
+    src: str,
+    include_indices: bool,
+    geod: pyproj.Geod
+) -> gpd.GeoDataFrame: ...
+@T.overload
+def to_points_df(
+    geo: shapely.Polygon,
+    crs: int,
+    *,
+    src: str,
+    include_indices: bool,
+    geod: pyproj.Geod
+) -> gpd.GeoDataFrame: ...
+@T.overload
+def to_points_df(
+    geo: NPArray,
+    crs: int,
+    *,
+    src: str,
+    include_indices: bool,
+    geod: pyproj.Geod,
+) -> gpd.GeoDataFrame: ...
+def to_points_df(
+    geo: shapely.Polygon | NPArray | gpd.GeoDataFrame,
+    crs: int,
+    *,
+    src: str = "",
+    include_angles: bool = True,
+    include_distances: bool = True,
+    include_indices: bool = False,
+    geod: pyproj.Geod = WGS84_GEOD,
+):
+    gpd = importlib.import_module("geopandas")
+
+    if isinstance(geo, shapely.Polygon):
+        coords = shapely.get_coordinates(geo.normalize())
+    elif isinstance(geo, gpd.GeoDataFrame):
+        if len(geo) > 1:
+            raise ValueError("Too many rows. I can only handle 1")
+        coords = shapely.get_coordinates(geo.iloc[0].geometry)
+    elif not np.array_equal(geo[0], geo[-1]):
+        coords = np.r_[geo, geo[:1]]
+    else:
+        coords = geo
+    no_coords = len(coords)
+
+    repeated = coords
+    non_repeated = coords[:-1]
+
+    # Convert to lon/lat
+    transformer = pyproj.Transformer.from_crs(
+        crs,
+        pyproj.CRS(4326),
+        always_xy=True,
+        only_best=True,
+    )
+    lons, lats = transformer.transform(repeated[:, 0], repeated[:, 1])
+
+    data: dict[str, str | NPArray] = {
+        "lons": lons,
+        "lats": lats,
+    }
+
+    if include_distances:
+        # cartesian distances
+        diff = np.diff(repeated, axis=0)
+        dist = np.hypot(diff[:, 0], diff[:, 1])
+
+        # geod distances
+        ellps = geod.line_lengths(lons, lats)
+
+        # repeat first point
+        cartesians = np.concat((dist, dist[[0]]), axis=0)
+        ellipsoids = np.concat((ellps, ellps[[0]]), axis=0)
+
+        data.update({
+            "cartesian": cartesians,
+            "ellipsoid": ellipsoids,
+        })
+
+    # Angles
+    if include_angles:
+        doublepi: float = 2 * np.pi
+        v1 = non_repeated - np.concat((non_repeated[-1:], non_repeated[:-1]), axis=0)
+        v2 = non_repeated - np.concat((non_repeated[1:], non_repeated[:1]), axis=0)
+        angles = (np.arctan2(v1[:, 1], v1[:, 0]) - np.arctan2(v2[:, 1], v2[:, 0])) % doublepi
+
+        # repeat first point
+        angles = np.concat((angles, angles[[0]]), axis=0)
+
+        data.update({
+            "angle": angles,
+            "angle_deg": np.rad2deg(angles),
+        })
+
+    if src:
+        data["src"] = src
+
+    # indexes
+    if include_indices:
+        index_prev = np.concat(([no_coords - 2], range(no_coords - 2), [no_coords - 2]), axis=0)
+        index_main = np.concat((np.arange(no_coords - 1), [0]), axis=0)
+        index_next = np.concat((range(1, len(coords) - 1), [0, 1]), axis=0)
+        index_next2 = np.concat((range(2, len(coords) - 1), [0, 1, 2]), axis=0)
+        data.update({
+            "index_prev": index_prev,
+            "index_main": index_main,
+            "index_next": index_next,
+            "index_next2": index_next2,
+        })
+
+    gdf = gpd.GeoDataFrame(
+        data=data,
+        geometry=shapely.get_parts(shapely.multipoints(coords)),
+        crs=crs,
+    ).reset_index()
+
+    return gdf
 
 
 @functools.cache
