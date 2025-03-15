@@ -2,20 +2,24 @@
 from __future__ import annotations
 
 import functools
-import importlib
 import logging
 import math
 import os
-import pathlib
 import subprocess
 import typing as T
 from collections import abc
 
+import bokeh.events
 import cartopy.crs as ccrs
+import geopandas as gpd
+import geoviews as gv
+import geoviews.tile_sources as gvts
+import holoviews as hv
 import logfmter
 import numpy as np
+import panel as pn
+import pyogrio  # pyright: ignore[reportMissingTypeStubs]
 import pyproj
-import pyogrio
 import shapely
 
 __all__ = [
@@ -36,12 +40,7 @@ WGS84 = pyproj.CRS(projparams=("epsg", 4326))
 WGS84_GEOD = pyproj.Geod(ellps="WGS84")
 
 if T.TYPE_CHECKING:  # pragma: no cover
-    import bokeh.events
-    import geopandas as gpd
-    import geoviews as gv  # pyright: ignore[reportUnusedImport]
-    import holoviews as hv
     import numpy.typing as npt
-    import panel as pn
     from holoviews.plotting.bokeh.plot import BokehPlot
 
     NPArray: T.TypeAlias = npt.NDArray[np.float64]
@@ -77,8 +76,6 @@ def setup(include_logging: bool = True):
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
         logging.basicConfig(level=logging.DEBUG, handlers=[handler])
-    hv = importlib.import_module("holoviews")
-    pn = importlib.import_module("panel")
     _ = hv.extension("bokeh")
     _ = pn.extension(throttled=True, inline=True, ready_notification="Ready")
     hv.opts.defaults(
@@ -138,7 +135,6 @@ def GDF(  # noqa: N802
     geo: NPArray | shapely.Geometry | abc.Sequence[shapely.Geometry] | gpd.GeoDataFrame | gpd.GeoSeries,
     crs: T.Any | None = None,
 ) -> gpd.GeoDataFrame:
-    gpd = importlib.import_module("geopandas")
     match geo:
         # Geoseries and GeoDataFrames are collections themselves, therefore they must come before
         # the check for `abc.Collection`
@@ -197,7 +193,6 @@ def calc_area_and_perimeter(
 
 
 def show(*objs: T.Any, threaded: bool = True, **kwargs: T.Any) -> None:
-    pn = importlib.import_module("panel")
     _ = pn.serve(panels=pn.Column(*objs), threaded=threaded, **kwargs)
 
 
@@ -210,10 +205,6 @@ def _plot_gdf(
     per_row: bool = False,
     **kwargs: T.Any,
 ) -> list[hv.Element]:
-    # lazy imports
-    hv = importlib.import_module("holoviews")  # pyright: ignore[reportUnusedVariable]
-    gv = importlib.import_module("geoviews")
-
     plots: list[hv.Element] = []
     polygons = gdf[gdf.geom_type.isin(["Polygon", "MultiPolygon"])]
     points = gdf[gdf.geom_type.isin(["Point", "MultiPoint"])]
@@ -245,9 +236,6 @@ def PLOT(  # noqa: N802
     per_row: bool = False,
     **kwargs: T.Any,
 ) -> None:
-    gpd = importlib.import_module("geopandas")
-    gvts = importlib.import_module("geoviews.tile_sources")
-    hv = importlib.import_module("holoviews")
     plots: list[hv.Element | hv.Layout]
     if crs is ccrs.GOOGLE_MERCATOR:
         plots = [gvts.tile_sources[tiles]]
@@ -306,8 +294,6 @@ def to_points_df(
     include_indices: bool = False,
     geod: pyproj.Geod = WGS84_GEOD,
 ):
-    gpd = importlib.import_module("geopandas")
-
     if isinstance(geo, shapely.Polygon):
         coords = shapely.get_coordinates(geo.normalize())
     elif isinstance(geo, gpd.GeoDataFrame):
@@ -407,8 +393,6 @@ def _get_transformer(from_crs) -> pyproj.Transformer:
 
 
 def measure_distance(plot: BokehPlot, _: hv.Element) -> None:
-    import panel as pn
-    import bokeh.events
 
     def dist(event: bokeh.events.Tap):
         # type hints BS
@@ -442,5 +426,4 @@ def measure_distance(plot: BokehPlot, _: hv.Element) -> None:
 
 
 def hist(array: NPArray, bins: int = 20) -> None:
-    hv = importlib.import_module("holoviews")
     show(hv.Histogram(np.histogram(array, bins)[::-1]))
