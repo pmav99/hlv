@@ -5,6 +5,8 @@ import functools
 import importlib
 import logging
 import math
+import os
+import pathlib
 import subprocess
 import typing as T
 from collections import abc
@@ -13,6 +15,7 @@ import cartopy.crs as ccrs
 import logfmter
 import numpy as np
 import pyproj
+import pyogrio
 import shapely
 
 __all__ = [
@@ -38,12 +41,27 @@ if T.TYPE_CHECKING:  # pragma: no cover
     import geoviews as gv  # pyright: ignore[reportUnusedImport]
     import holoviews as hv
     import numpy.typing as npt
-    import panel as pn  # pyright: ignore[reportUnusedImport]
+    import panel as pn
     from holoviews.plotting.bokeh.plot import BokehPlot
 
     NPArray: T.TypeAlias = npt.NDArray[np.float64]
 
     assert isinstance(ccrs.GOOGLE_MERCATOR, ccrs.Mercator)  # type hints BS
+
+
+def to_file(gdf: gpd.GeoDataFrame, filename: str | os.PathLike[str], **kwargs: T.Any):
+    if "layer_metadata" in kwargs or "metadata" in kwargs:
+        raise ValueError("You can't pass layer metadata. They are inferred from the dataframe's attrs")
+    attrs = {k: str(v) for k, v in gdf.attrs.items()}
+    kwargs["layer_metadata"] = attrs
+    gdf.to_file(filename, **kwargs)
+
+
+def read_file(filename: str | os.PathLike[str], **kwargs: T.Any):
+    info = T.cast(dict[str, T.Any], pyogrio.read_info(filename, **kwargs))
+    gdf = gpd.read_file(filename, **kwargs)
+    gdf.attrs.update(info["layer_metadata"] or {})
+    return gdf
 
 
 def setup(include_logging: bool = True):
