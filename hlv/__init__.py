@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import functools
+import importlib.metadata
 import logging
 import math
 import os
@@ -28,13 +29,17 @@ __all__ = [
     "hist",
     "measure_distance",
     "PLOT",
+    "read_file",
     "setup",
     "show",
+    "to_file",
     "to_points_df",
     "WGS84",
     "WGS84_GEOD",
+    "__version__",
 ]
 
+__version__ = importlib.metadata.version(__name__)
 
 WGS84 = pyproj.CRS(projparams=("epsg", 4326))
 WGS84_GEOD = pyproj.Geod(ellps="WGS84")
