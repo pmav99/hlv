@@ -44,3 +44,34 @@ filterwarnings = [
     'ignore:distutils Version classes are deprecated. Use packaging.version instead:DeprecationWarning',
     'ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning',
 ]
+
+[tool.coverage.run]
+plugins = []
+source = ["hlv"]
+concurrency = [
+  "multiprocessing",
+  "thread",
+]
+parallel = true
+sigterm = true
+
+[tool.coverage.report]
+exclude_also = [
+    'def __repr__',
+    'if self.debug:',
+    'if settings.DEBUG',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if 0:',
+    'if __name__ == .__main__.:',
+    'if TYPE_CHECKING:',
+    'if T\.TYPE_CHECKING:',
+    'if typing\.TYPE_CHECKING:',
+    'class .*\bProtocol\):',
+    '@(abc\.)?abstractmethod',
+    # Comments to turn coverage on and off:
+    'no cover: start(?s:.)*?no cover: stop',
+    # A pragma comment that excludes an entire file:
+    '\A(?s:.*# pragma: exclude file.*)\Z',
+]
+fail_under = 95
