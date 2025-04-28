@@ -197,8 +197,25 @@ def calc_area_and_perimeter(
     return gdf
 
 
-def show(*objs: T.Any, threaded: bool = True, **kwargs: T.Any) -> None:
-    _ = pn.serve(panels=pn.Column(*objs), threaded=threaded, **kwargs)
+def _kill_existing_server(server_id: str):
+    if server_id in pn.state._threads:
+        pn.state._threads[server_id].stop()
+    else:
+        try:
+            pn.state._servers[server_id][0].stop()
+        except AssertionError:  # can't stop a server twice
+            pass
+    pn.state._servers.pop(server_id, None)
+    pn.state._threads.pop(server_id, None)
+
+
+def show(*objs: T.Any, threaded: bool = True, port: int = 0, **kwargs: T.Any) -> None:
+    if port != 0:
+        for server_id, server in pn.state._servers.items():
+            if server[0].port == port:
+                _kill_existing_server(server_id)
+                break
+    _ = pn.serve(panels=pn.Column(*objs), threaded=threaded, port=port, **kwargs)
 
 
 def _plot_gdf(
@@ -239,6 +256,7 @@ def PLOT(  # noqa: N802
     size: float = 8,
     tiles: str = "OSM",
     per_row: bool = False,
+    port: int = 0,
     **kwargs: T.Any,
 ) -> None:
     plots: list[hv.Element | hv.Layout]
@@ -260,7 +278,7 @@ def PLOT(  # noqa: N802
             case _:
                 raise ValueError(f"Unsupported type provided for plotting: {type(geo)}.")
     overlay = T.cast(hv.Overlay, hv.Overlay(plots).opts(hooks=[measure_distance], projection=crs))
-    show(overlay)
+    show(overlay, port=port)
 
 @T.overload
 def to_points_df(
